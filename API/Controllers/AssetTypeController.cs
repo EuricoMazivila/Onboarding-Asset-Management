@@ -1,7 +1,10 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
+using System.Threading.Tasks;
+using API.Domain;
+using API.Persistence;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace API.Controllers
 {
@@ -9,44 +12,25 @@ namespace API.Controllers
     [Route("[controller]")]
     public class AssetTypeController : ControllerBase
     {
-        [HttpGet]
-        public IEnumerable<AssetType> Get()
+        private readonly DataContext _dataContext;
+
+        public AssetTypeController(DataContext dataContext)
         {
-            var assetType = new List<AssetType>
-            {
-                new AssetType
-                {
-                    Id = 1,
-                    Name = "Test"
-                },
-                new AssetType
-                {
-                    Id = 2,
-                    Name = "Test 2"
-                }
-            };
-            return assetType;
+            _dataContext = dataContext;
         }
-
-
-        [HttpGet("{id}")]
-        public ActionResult<AssetType> GetById(int id)
+        
+        [HttpGet]
+        public async Task<ActionResult<List<AssetType>>> GetListAssetTypes()
         {
-            var assetTypes = new List<AssetType>
-            {
-                new AssetType
-                {
-                    Id = 1,
-                    Name = "Test"
-                },
-                new AssetType
-                {
-                    Id = 2,
-                    Name = "Test 2"
-                }
-            };
-
-            var assetType = assetTypes.FirstOrDefault(x => x.Id == id);
+            var assetTypes = await _dataContext.AssetTypes.ToListAsync();
+            return assetTypes;
+        }
+        
+        
+        [HttpGet("{id}")]
+        public async Task<ActionResult<AssetType>> GetAssetTypeById(int id)
+        {
+            var assetType = await _dataContext.AssetTypes.FirstOrDefaultAsync(x => x.Id == id);
 
             if (assetType == null)
             {
@@ -57,99 +41,72 @@ namespace API.Controllers
         }
 
         [HttpPost]
-        public ActionResult<AssetType> Post(AssetType assetType)
+        public async Task<ActionResult<AssetType>> PostAssetType(Domain.AssetType assetType)
         {
-            var assetTypes = new List<AssetType>
-            {
-                new AssetType
-                {
-                    Id = 1,
-                    Name = "Test"
-                },
-                new AssetType
-                {
-                    Id = 2,
-                    Name = "Test 2"
-                }
-            };
-
-            var checkAssetType = assetTypes.FirstOrDefault(x => x.Name.Trim().ToLower() 
-                                                                == assetType.Name.Trim().ToLower());
+            var checkAssetType = await _dataContext.AssetTypes
+                .FirstOrDefaultAsync(x => x.Description.Trim().ToLower() 
+                                          == assetType.Description.Trim().ToLower());
             
             if (checkAssetType != null)
             {
-                throw new Exception($"Asset typ with name {assetType.Name} exist on database!");
+                throw new Exception($"Asset typ with name {assetType.Description} exist on database!");
             }
-            
-            assetTypes.Add(assetType);
-            
+
+            _dataContext.AssetTypes.Add(assetType);
+            var result = await _dataContext.SaveChangesAsync();
+
+            if (result <= 0 )
+            {
+                throw new Exception("failed to create new Asset Type ");
+            }
+
             return assetType;
         }
 
         [HttpPut("{id}")]
-        public ActionResult<AssetType> Put(int id, AssetType updateAssetType)
+        public async Task<ActionResult<AssetType>> Put(int id, AssetType updateAssetType)
         {
-            var assetTypes = new List<AssetType>
-            {
-                new AssetType
-                {
-                    Id = 1,
-                    Name = "Test"
-                },
-                new AssetType
-                {
-                    Id = 2,
-                    Name = "Test 2"
-                }
-            };
-
-            var assetType = assetTypes.FirstOrDefault(x => x.Id == id);
+            var assetType = await _dataContext.AssetTypes.FirstOrDefaultAsync(x => x.Id == id);
 
             if (assetType == null)
             {
                 throw new Exception($"Asset typ with id {id} not found!");
             }
 
-            assetType.Name = updateAssetType.Name;
+            assetType.Description = updateAssetType.Description;
+            _dataContext.Update(assetType);
+            var result = await _dataContext.SaveChangesAsync();
+
+            if (result<= 0)
+            {
+                throw new Exception($"failed to updated asset type with id {assetType.Id}");
+            }
             
             return assetType;
         }
 
         [HttpDelete("delete/{id}")]
-        public ActionResult<AssetType> Delete(int id)
+        public async Task<ActionResult<AssetType>> Delete(int id)
         {
-            var assetTypes = new List<AssetType>
-            {
-                new AssetType
-                {
-                    Id = 1,
-                    Name = "Test"
-                },
-                new AssetType
-                {
-                    Id = 2,
-                    Name = "Test 2"
-                }
-            };
-
-            var assetType = assetTypes.FirstOrDefault(x => x.Id == id);
+            var assetType = await _dataContext.AssetTypes.FindAsync(id);
 
             if (assetType == null)
             {
                 throw new Exception($"Asset typ with id {id} not found!");
             }
 
-            assetTypes.Remove(assetType);
+            _dataContext.Remove(assetType);
+            
+            var result = await _dataContext.SaveChangesAsync();
 
+            if (result<= 0)
+            {
+                throw new Exception($"Failed to remove asset type with id {assetType.Id}");
+            }
+            
             return assetType;
         }
 
 
-    }
-
-    public class AssetType
-    {
-        public int Id { get; set; }
-        public string Name { get; set; }
     }
 }
